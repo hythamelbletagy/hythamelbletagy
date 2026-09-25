@@ -30,6 +30,7 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
     private lateinit var fbApp: TextView
     private lateinit var fbWeb: TextView
     private lateinit var history: TextView
+    private lateinit var sessionSummary: TextView
     private lateinit var diagnosticsPanel: View
     private lateinit var log: TextView
 
@@ -46,6 +47,7 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
         fbApp = findViewById(R.id.fb_app_count)
         fbWeb = findViewById(R.id.fb_web_count)
         history = findViewById(R.id.history)
+        sessionSummary = findViewById(R.id.session_summary)
         diagnosticsPanel = findViewById(R.id.diagnostics_panel)
         log = findViewById(R.id.log)
 
@@ -60,7 +62,13 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
         findViewById<Button>(R.id.reset_button).setOnClickListener {
             AlertDialog.Builder(this)
                 .setMessage(R.string.reset_confirm)
-                .setPositiveButton(android.R.string.ok) { _, _ -> store.reset() }
+                .setPositiveButton(android.R.string.ok) { _, _ ->
+                    store.reset()
+                    store.prefs.edit()
+                        .remove(Prefs.sessionCount(Prefs.SESSION_INSTAGRAM))
+                        .remove(Prefs.sessionCount(Prefs.SESSION_FACEBOOK))
+                        .apply()
+                }
                 .setNegativeButton(android.R.string.cancel, null)
                 .show()
         }
@@ -82,19 +90,27 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
         overlay.setOnCheckedChangeListener { _, checked ->
             store.prefs.edit().putBoolean(Prefs.OVERLAY_ENABLED, checked).apply()
         }
-        bindLimit(findViewById(R.id.limit_reels), Prefs.LIMIT_REELS)
-        bindLimit(findViewById(R.id.limit_facebook), Prefs.LIMIT_FACEBOOK)
+        bindNumber(R.id.limit_reels, Prefs.LIMIT_REELS)
+        bindNumber(R.id.limit_facebook, Prefs.LIMIT_FACEBOOK)
+        bindNumber(R.id.session_limit_reels, Prefs.SESSION_LIMIT_REELS)
+        bindNumber(R.id.session_limit_facebook, Prefs.SESSION_LIMIT_FACEBOOK)
+        bindNumber(R.id.session_gap, Prefs.SESSION_GAP_MINUTES, Prefs.DEFAULT_SESSION_GAP_MINUTES)
+        bindNumber(R.id.reel_min_seconds, Prefs.REEL_MIN_SECONDS, Prefs.DEFAULT_REEL_MIN_SECONDS)
     }
 
-    /** Shows the saved limit in [field] and saves edits; empty or 0 means no limit. */
-    private fun bindLimit(field: EditText, key: String) {
-        val saved = store.prefs.getInt(key, 0)
-        if (saved > 0) field.setText(saved.toString())
+    /**
+     * Shows the saved number in a field and saves edits. An empty field means
+     * [default] (0 = no limit), and the field then shows the default as its hint.
+     */
+    private fun bindNumber(fieldId: Int, key: String, default: Int = 0) {
+        val field = findViewById<EditText>(fieldId)
+        val saved = store.prefs.getInt(key, default)
+        if (saved != default) field.setText(saved.toString())
         field.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
             override fun afterTextChanged(s: Editable?) {
-                store.prefs.edit().putInt(key, s?.toString()?.toIntOrNull() ?: 0).apply()
+                store.prefs.edit().putInt(key, s?.toString()?.toIntOrNull() ?: default).apply()
             }
         })
     }
@@ -130,6 +146,11 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
         igReels.text = store.get(Counter.INSTAGRAM_REELS).toString()
         fbApp.text = store.get(Counter.FACEBOOK_APP_PAGES).toString()
         fbWeb.text = store.get(Counter.FACEBOOK_WEB_PAGES).toString()
+        sessionSummary.text = getString(
+            R.string.session_summary,
+            store.prefs.getInt(Prefs.sessionCount(Prefs.SESSION_INSTAGRAM), 0),
+            store.prefs.getInt(Prefs.sessionCount(Prefs.SESSION_FACEBOOK), 0),
+        )
 
         val dayFormat = DateTimeFormatter.ofPattern("EEE dd MMM", Locale.getDefault())
         val today = LocalDate.now()

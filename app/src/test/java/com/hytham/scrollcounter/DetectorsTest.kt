@@ -22,33 +22,56 @@ class DetectorsTest {
     ) = ScrollInfo(key, viewId, className, from, to, -1, scrollY, deltaX, deltaY, width, height, 1080, 2400, time)
 
     @Test
-    fun reels_countsEachNewIndexOnce() {
+    fun reels_reportsNewReelsAndCountsEachOnce() {
         val d = ReelDetector()
-        assertEquals(0, d.onScroll(info(from = 0)))  // starting reel
-        assertEquals(0, d.onScroll(info(from = 0)))  // mid-swipe
-        assertEquals(1, d.onScroll(info(from = 1)))
-        assertEquals(0, d.onScroll(info(from = 0)))  // swipe back
-        assertEquals(0, d.onScroll(info(from = 1)))  // already seen
-        assertEquals(1, d.onScroll(info(from = 2)))
+        assertFalse(d.onScroll(info(from = 0)))  // starting reel
+        assertFalse(d.onScroll(info(from = 0)))  // mid-swipe
+        assertTrue(d.onScroll(info(from = 1)))
+        assertTrue(d.countCurrent())
+        assertFalse(d.countCurrent())            // already counted
+        assertTrue(d.onScroll(info(from = 2)))   // swiped past quickly, not counted
+        assertFalse(d.onScroll(info(from = 1)))  // back to a counted reel
+        assertTrue(d.onScroll(info(from = 2)))   // skipped reel can still count
+        assertTrue(d.countCurrent())
+    }
+
+    @Test
+    fun reels_currentReelChangesOnEverySwipe() {
+        val d = ReelDetector()
+        d.onScroll(info(from = 0))
+        d.onScroll(info(from = 1))
+        val first = d.currentReel
+        d.onScroll(info(from = 0))
+        assertTrue(d.currentReel != first)
+        assertTrue(d.countCurrent())             // the starting reel was never counted
     }
 
     @Test
     fun reels_newPagerStartsFresh() {
         val d = ReelDetector()
         d.onScroll(info(from = 0))
-        d.onScroll(info(from = 5))
-        assertEquals(0, d.onScroll(info(key = "w2:9", from = 0)))
-        assertEquals(1, d.onScroll(info(key = "w2:9", from = 1)))
+        d.onScroll(info(from = 1)); d.countCurrent()
+        assertFalse(d.onScroll(info(key = "w2:9", from = 0)))
+        assertTrue(d.onScroll(info(key = "w2:9", from = 1)))
     }
 
     @Test
-    fun reels_withoutIndexCountsSwipeBursts() {
+    fun reels_withoutIndexTreatsSwipeBurstsAsNewReels() {
         val d = ReelDetector(swipeGapMillis = 700)
-        assertEquals(1, d.onScroll(info(time = 1000)))
-        assertEquals(0, d.onScroll(info(time = 1050)))
-        assertEquals(0, d.onScroll(info(time = 1100)))
-        assertEquals(1, d.onScroll(info(time = 3000)))
-        assertEquals(0, d.onScroll(info(time = 5000, deltaY = -300))) // swiping back
+        assertTrue(d.onScroll(info(time = 1000)))
+        assertFalse(d.onScroll(info(time = 1050)))
+        assertFalse(d.onScroll(info(time = 1100)))
+        assertTrue(d.onScroll(info(time = 3000)))
+        assertFalse(d.onScroll(info(time = 5000, deltaY = -300))) // swiping back
+    }
+
+    @Test
+    fun session_startsAfterGap() {
+        val gap = 5 * 60_000L
+        assertTrue(Session.isNewSession(nowMillis = 1_000_000, leftAtMillis = 0, gapMillis = gap))
+        assertFalse(Session.isNewSession(nowMillis = 1_000_000, leftAtMillis = 1_000_000 - 60_000, gapMillis = gap))
+        assertTrue(Session.isNewSession(nowMillis = 1_000_000, leftAtMillis = 1_000_000 - gap, gapMillis = gap))
+        assertTrue(Session.isNewSession(nowMillis = 1_000_000, leftAtMillis = 2_000_000, gapMillis = gap)) // clock moved back
     }
 
     @Test

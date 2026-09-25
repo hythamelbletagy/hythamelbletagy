@@ -2,7 +2,8 @@
 
 Counts, per day:
 
-- **Instagram reels** you scroll to (Instagram app)
+- **Instagram reels** you watch (Instagram app). By default a reel counts once it has
+  stayed on screen for 5 seconds, so reels you swipe past quickly don't count
 - **Facebook pages** scrolled in the Facebook app (and Facebook Lite)
 - **Facebook pages** scrolled on facebook.com in a mobile browser
 
@@ -11,12 +12,19 @@ A "page" is one screen height scrolled downward. Scrolling back up is not counte
 ## Floating counter
 
 While Instagram, Facebook or facebook.com is on screen, a small badge floats on
-top showing today's count: 🎬 reels in Instagram, 📄 pages in Facebook (app + web
-combined). Drag it to move it. In the app you can:
+top: 🎬 reels in Instagram, 📄 pages in Facebook (app + web combined). The large
+number is this session's count and the small line below is today's. Drag it to move it.
+
+A **session** starts when you open the app after being away from it for at least
+5 minutes (configurable). Instagram and Facebook each have their own session.
+
+In the app you can:
 
 - turn the badge on or off
-- set a daily limit for reels and for Facebook pages. The badge shows `count / limit`
-  and turns red once you reach it. Leave the limit empty for no limit.
+- set **daily** and **per-session** limits for reels and for Facebook pages. The badge
+  shows `count / limit`, turns red once a limit is reached, and a message pops up at that
+  moment. Leave a limit empty for no limit.
+- change how many seconds a reel must play before it counts (default 5; 0 counts every swipe)
 
 The badge is an accessibility overlay, so it needs no extra "Display over other apps" permission.
 
@@ -33,7 +41,7 @@ except for the browser's address bar, which it checks to see whether you're on f
 
 | What | How it's detected | Code |
 |---|---|---|
-| Instagram reels | Scroll events from the full-screen reels pager (view id containing `clips`). Each new, furthest-reached reel counts once, so swiping back and forth doesn't inflate the count. | `ReelDetector.kt` |
+| Instagram reels | Scroll events from the full-screen reels pager (view id containing `clips`) tell when a new reel is on screen. If it's still on screen after the minimum watch time, it counts. Each reel counts once, so swiping back and forth doesn't inflate the count. | `ReelDetector.kt`, `ScrollCounterService.kt` |
 | Facebook pages | Downward scroll distance ÷ visible height, from pixel deltas, `scrollY`, or feed item positions, whichever the app reports | `PageScrollTracker.kt` |
 | facebook.com in a browser | The same page counting, only while the address bar shows `facebook.com` / `fb.com` | `ScrollCounterService.kt`, `FacebookUrl.kt` |
 
@@ -79,7 +87,8 @@ the apps update. If a count looks wrong:
 
 Known limitations:
 
-- Opening a reel counts nothing. Each swipe to a new reel counts 1.
+- The reel you open first isn't counted unless you come back to it after swiping away.
+- The app can't tell whether a reel is paused. A reel left on screen for 5 seconds counts even if it was paused.
 - Reels watched inside the Facebook app count as Facebook pages, not Instagram reels.
 - If the browser's address bar is hidden, the last known site is kept until the bar shows again.
 - In a browser, the badge appears when you open facebook.com or once you start scrolling it

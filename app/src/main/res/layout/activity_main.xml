@@ -151,6 +151,14 @@
             </LinearLayout>
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/session_summary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp" />
+
         <Button
             android:id="@+id/reset_button"
             style="@android:style/Widget.Material.Button.Borderless.Colored"
@@ -190,10 +198,17 @@
                 android:textColor="@color/text_secondary"
                 android:textSize="13sp" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/section_daily_limits"
+                android:textColor="@color/accent"
+                android:textStyle="bold" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -236,6 +251,121 @@
                     android:inputType="number"
                     android:maxLength="5" />
             </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/section_session_limits"
+                android:textColor="@color/accent"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/limit_reels" />
+
+                <EditText
+                    android:id="@+id/session_limit_reels"
+                    android:layout_width="96dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:hint="@string/no_limit"
+                    android:importantForAutofill="no"
+                    android:inputType="number"
+                    android:maxLength="5" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/limit_facebook" />
+
+                <EditText
+                    android:id="@+id/session_limit_facebook"
+                    android:layout_width="96dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:hint="@string/no_limit"
+                    android:importantForAutofill="no"
+                    android:inputType="number"
+                    android:maxLength="5" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/session_gap" />
+
+                <EditText
+                    android:id="@+id/session_gap"
+                    android:layout_width="96dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:hint="@string/default_session_gap"
+                    android:importantForAutofill="no"
+                    android:inputType="number"
+                    android:maxLength="5" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/section_counting"
+                android:textColor="@color/accent"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/reel_min_seconds" />
+
+                <EditText
+                    android:id="@+id/reel_min_seconds"
+                    android:layout_width="96dp"
+                    android:layout_height="wrap_content"
+                    android:gravity="end"
+                    android:hint="@string/default_reel_seconds"
+                    android:importantForAutofill="no"
+                    android:inputType="number"
+                    android:maxLength="5" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/reel_min_seconds_hint"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp" />
         </LinearLayout>
 
         <!-- History -->

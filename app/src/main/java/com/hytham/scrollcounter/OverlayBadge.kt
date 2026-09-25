@@ -5,6 +5,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.RelativeSizeSpan
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -18,7 +21,12 @@ import kotlin.math.abs
  * It uses an accessibility overlay window, which the accessibility service may
  * add without the "Display over other apps" permission.
  */
-class OverlayBadge(private val context: Context, private val prefs: SharedPreferences) {
+class OverlayBadge(
+    private val context: Context,
+    private val prefs: SharedPreferences,
+    private val instagramSession: Session,
+    private val facebookSession: Session,
+) {
 
     enum class Mode { REELS, FACEBOOK }
 
@@ -62,26 +70,45 @@ class OverlayBadge(private val context: Context, private val prefs: SharedPrefer
 
     private fun render(badge: TextView, mode: Mode) {
         val store = CounterStore.from(prefs)
-        val (label, count, limit) = when (mode) {
-            Mode.REELS -> Triple(
-                "🎬", // 🎬
-                store.get(Counter.INSTAGRAM_REELS),
-                prefs.getInt(Prefs.LIMIT_REELS, 0),
-            )
-            Mode.FACEBOOK -> Triple(
-                "📄", // 📄
-                store.get(Counter.FACEBOOK_APP_PAGES) + store.get(Counter.FACEBOOK_WEB_PAGES),
-                prefs.getInt(Prefs.LIMIT_FACEBOOK, 0),
-            )
+        val icon: String
+        val today: Int
+        val session: Int
+        val dailyLimit: Int
+        val sessionLimit: Int
+        when (mode) {
+            Mode.REELS -> {
+                icon = "\uD83C\uDFAC" // 🎬
+                today = store.get(Counter.INSTAGRAM_REELS)
+                session = instagramSession.count
+                dailyLimit = prefs.getInt(Prefs.LIMIT_REELS, 0)
+                sessionLimit = prefs.getInt(Prefs.SESSION_LIMIT_REELS, 0)
+            }
+            Mode.FACEBOOK -> {
+                icon = "\uD83D\uDCC4" // 📄
+                today = store.get(Counter.FACEBOOK_APP_PAGES) + store.get(Counter.FACEBOOK_WEB_PAGES)
+                session = facebookSession.count
+                dailyLimit = prefs.getInt(Prefs.LIMIT_FACEBOOK, 0)
+                sessionLimit = prefs.getInt(Prefs.SESSION_LIMIT_FACEBOOK, 0)
+            }
         }
-        val overLimit = limit in 1..count
-        badge.text = if (limit > 0) "$label $count / $limit" else "$label $count"
+        val overLimit = dailyLimit in 1..today || sessionLimit in 1..session
+
+        // "🎬 12 / 20"  (this session, large)
+        // "today 45 / 100"  (small)
+        val first = "$icon ${withLimit(session, sessionLimit)}"
+        val second = context.getString(R.string.badge_today, withLimit(today, dailyLimit))
+        badge.text = SpannableString("$first\n$second").apply {
+            setSpan(RelativeSizeSpan(0.7f), first.length + 1, length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
         (badge.background as GradientDrawable).setColor(if (overLimit) COLOR_OVER_LIMIT else COLOR_NORMAL)
     }
+
+    private fun withLimit(count: Int, limit: Int) = if (limit > 0) "$count / $limit" else "$count"
 
     @SuppressLint("ClickableViewAccessibility")
     private fun createView(): TextView = TextView(context).apply {
         setTextColor(0xFFFFFFFF.toInt())
+        gravity = Gravity.CENTER
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
         typeface = android.graphics.Typeface.DEFAULT_BOLD
         setPadding(dp(12), dp(6), dp(12), dp(6))

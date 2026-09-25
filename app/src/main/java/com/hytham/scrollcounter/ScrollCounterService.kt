@@ -4,14 +4,20 @@ import android.accessibilityservice.AccessibilityService
 import android.content.SharedPreferences
 import android.graphics.Rect
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.Toast
 
 class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedPreferenceChangeListener {
 
     private lateinit var store: CounterStore
     private lateinit var badge: OverlayBadge
+    private lateinit var instagramSession: Session
+    private lateinit var facebookSession: Session
+    private val handler = Handler(Looper.getMainLooper())
     private val reels = ReelDetector()
     private val facebookApp = PageScrollTracker()
     private val facebookWeb = PageScrollTracker()
@@ -19,6 +25,8 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
 
     /** Package of the app currently on screen. */
     private var foreground: String? = null
+    /** What the badge is showing, which is also the app whose session is running. */
+    private var mode: OverlayBadge.Mode? = null
 
     private class BrowserState {
         var onFacebook = false
@@ -27,7 +35,9 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
 
     override fun onServiceConnected() {
         store = CounterStore(this)
-        badge = OverlayBadge(this, store.prefs)
+        instagramSession = Session(store.prefs, Prefs.SESSION_INSTAGRAM)
+        facebookSession = Session(store.prefs, Prefs.SESSION_FACEBOOK)
+        badge = OverlayBadge(this, store.prefs, instagramSession, facebookSession)
         DebugLog.enabled = store.prefs.getBoolean(Prefs.DIAGNOSTICS, false)
         store.prefs.registerOnSharedPreferenceChangeListener(this)
     }
@@ -35,6 +45,8 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
     override fun onDestroy() {
         if (::store.isInitialized) store.prefs.unregisterOnSharedPreferenceChangeListener(this)
         if (::badge.isInitialized) badge.hide()
+        mode?.let { sessionFor(it).leave(System.currentTimeMillis()) }
+        handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }
 
@@ -57,16 +69,16 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
         when (pkg) {
             INSTAGRAM -> {
                 val info = scrollInfo(event)
-                val n = reels.onScroll(info)
-                log(pkg, info, n, "reel")
-                store.add(Counter.INSTAGRAM_REELS, n)
+                val newReel = reels.onScroll(info)
+                log(pkg, info, if (newReel) "new reel" else null)
+                if (newReel) countReelAfterDelay()
             }
 
             in FACEBOOK_APPS -> {
                 val info = scrollInfo(event)
                 val n = facebookApp.onScroll(info)
-                log(pkg, info, n, "page")
-                store.add(Counter.FACEBOOK_APP_PAGES, n)
+                log(pkg, info, if (n > 0) "+$n page" else null)
+                addFacebookPages(Counter.FACEBOOK_APP_PAGES, n)
             }
 
             in BROWSERS -> onBrowserScroll(pkg, event)
@@ -98,20 +110,89 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
         if (!state.onFacebook) return
         val info = scrollInfo(event)
         val n = facebookWeb.onScroll(info)
-        log(pkg, info, n, "web page")
-        store.add(Counter.FACEBOOK_WEB_PAGES, n)
+        log(pkg, info, if (n > 0) "+$n web page" else null)
+        addFacebookPages(Counter.FACEBOOK_WEB_PAGES, n)
     }
 
+    /** Counts the reel on screen once it has stayed there for the minimum watch time. */
+    private fun countReelAfterDelay() {
+        val seconds = store.prefs.getInt(Prefs.REEL_MIN_SECONDS, Prefs.DEFAULT_REEL_MIN_SECONDS)
+        if (seconds <= 0) {
+            countReel()
+            return
+        }
+        val reel = reels.currentReel
+        handler.postDelayed({
+            // Still the same reel, still in Instagram, and the reels screen is still open.
+            if (reels.currentReel == reel && foreground == INSTAGRAM && reelsPagerOnScreen()) countReel()
+        }, seconds * 1000L)
+    }
+
+    private fun countReel() {
+        if (!reels.countCurrent()) return
+        DebugLog.add("instagram +1 reel")
+        addAndWarn(Counter.INSTAGRAM_REELS, 1, instagramSession, Prefs.LIMIT_REELS, Prefs.SESSION_LIMIT_REELS, "reels")
+    }
+
+    private fun addFacebookPages(counter: Counter, n: Int) =
+        addAndWarn(counter, n, facebookSession, Prefs.LIMIT_FACEBOOK, Prefs.SESSION_LIMIT_FACEBOOK, "Facebook pages")
+
+    /** Adds [n] to today's count and the session, with a toast when a limit is reached. */
+    private fun addAndWarn(counter: Counter, n: Int, session: Session, dailyKey: String, sessionKey: String, what: String) {
+        if (n <= 0) return
+        val daily = if (counter == Counter.INSTAGRAM_REELS) {
+            store.get(counter)
+        } else {
+            store.get(Counter.FACEBOOK_APP_PAGES) + store.get(Counter.FACEBOOK_WEB_PAGES)
+        }
+        val inSession = session.count
+        store.add(counter, n)
+        session.add(n)
+
+        val sessionLimit = store.prefs.getInt(sessionKey, 0)
+        val dailyLimit = store.prefs.getInt(dailyKey, 0)
+        val message = when {
+            sessionLimit > 0 && inSession < sessionLimit && inSession + n >= sessionLimit ->
+                getString(R.string.session_limit_reached, sessionLimit, what)
+            dailyLimit > 0 && daily < dailyLimit && daily + n >= dailyLimit ->
+                getString(R.string.daily_limit_reached, dailyLimit, what)
+            else -> null
+        }
+        message?.let { Toast.makeText(this, it, Toast.LENGTH_LONG).show() }
+    }
+
+    private fun reelsPagerOnScreen(): Boolean {
+        val id = reels.pagerViewId ?: return true // can't check without an id
+        val root = rootInActiveWindow ?: return false
+        return try {
+            val nodes = root.findAccessibilityNodeInfosByViewId(id)
+            val visible = nodes.any { it.isVisibleToUser }
+            nodes.forEach { it.release() }
+            visible
+        } finally {
+            root.release()
+        }
+    }
+
+    private fun sessionFor(mode: OverlayBadge.Mode) =
+        if (mode == OverlayBadge.Mode.REELS) instagramSession else facebookSession
+
+    /** Shows the right badge for the app on screen and starts/ends sessions. */
     private fun updateBadge() {
         val pkg = foreground
-        badge.show(
-            when {
-                pkg == INSTAGRAM -> OverlayBadge.Mode.REELS
-                pkg in FACEBOOK_APPS -> OverlayBadge.Mode.FACEBOOK
-                pkg in BROWSERS && browsers[pkg]?.onFacebook == true -> OverlayBadge.Mode.FACEBOOK
-                else -> null
-            }
-        )
+        val newMode = when {
+            pkg == INSTAGRAM -> OverlayBadge.Mode.REELS
+            pkg in FACEBOOK_APPS -> OverlayBadge.Mode.FACEBOOK
+            pkg in BROWSERS && browsers[pkg]?.onFacebook == true -> OverlayBadge.Mode.FACEBOOK
+            else -> null
+        }
+        if (newMode != mode) {
+            val now = System.currentTimeMillis()
+            mode?.let { sessionFor(it).leave(now) }
+            newMode?.let { sessionFor(it).enter(now) }
+            mode = newMode
+        }
+        badge.show(newMode)
     }
 
     private fun refreshBrowserUrl(pkg: String, state: BrowserState, now: Long) {
@@ -194,14 +275,14 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
         )
     }
 
-    private fun log(pkg: String, info: ScrollInfo, counted: Int, what: String) {
+    private fun log(pkg: String, info: ScrollInfo, note: String?) {
         if (!DebugLog.enabled) return
         val app = pkg.substringAfterLast('.')
         val id = info.viewId?.substringAfter(":id/") ?: info.className?.substringAfterLast('.')
         DebugLog.add(
             "$app $id idx=${info.fromIndex}-${info.toIndex}/${info.itemCount} y=${info.scrollY} " +
                 "dy=${info.deltaY} ${info.viewWidth}x${info.viewHeight}" +
-                if (counted > 0) "  +$counted $what" else ""
+                if (note != null) "  $note" else ""
         )
     }
 
