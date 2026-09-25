@@ -7,14 +7,28 @@ Counts, per day:
 - **Facebook pages** scrolled on facebook.com in a mobile browser
 
 A "page" is one screen height scrolled downward. Scrolling back up is not counted.
+
+## Floating counter
+
+While Instagram, Facebook or facebook.com is on screen, a small badge floats on
+top showing today's count: 🎬 reels in Instagram, 📄 pages in Facebook (app + web
+combined). Drag it to move it. In the app you can:
+
+- turn the badge on or off
+- set a daily limit for reels and for Facebook pages. The badge shows `count / limit`
+  and turns red once you reach it. Leave the limit empty for no limit.
+
+The badge is an accessibility overlay, so it needs no extra "Display over other apps" permission.
+
 Everything stays on the phone: counts go in the app's private storage, and nothing is sent anywhere.
 
 ## How it works
 
 Android doesn't let one app see what happens in another, except through an
-**Accessibility Service**. `ScrollCounterService` receives scroll events only from
-the apps listed in `app/src/main/res/xml/accessibility_service_config.xml`
-(Instagram, Facebook, Facebook Lite, and common browsers) and never reads screen text,
+**Accessibility Service**. `ScrollCounterService` receives window-change events from all
+apps, but for other apps it only notes which app is open so it can hide the badge.
+It counts scrolls only in Instagram, Facebook, Facebook Lite and the browsers listed in
+`ScrollCounterService.BROWSERS`. It never reads screen text,
 except for the browser's address bar, which it checks to see whether you're on facebook.com.
 
 | What | How it's detected | Code |
@@ -25,7 +39,7 @@ except for the browser's address bar, which it checks to see whether you're on f
 
 Supported browsers: Chrome, Samsung Internet, Firefox, Edge, Brave, Opera, Kiwi,
 DuckDuckGo, Vivaldi and Mi Browser. To add another one, add its package name to
-`accessibility_service_config.xml`.
+`BROWSERS` in `ScrollCounterService.kt`.
 
 ## Build
 
@@ -68,3 +82,5 @@ Known limitations:
 - Opening a reel counts nothing. Each swipe to a new reel counts 1.
 - Reels watched inside the Facebook app count as Facebook pages, not Instagram reels.
 - If the browser's address bar is hidden, the last known site is kept until the bar shows again.
+- In a browser, the badge appears when you open facebook.com or once you start scrolling it
+  (within about 1.5 seconds).

@@ -8,8 +8,11 @@ import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.widget.Button
+import android.widget.EditText
 import android.widget.Switch
 import android.widget.TextView
 import java.time.LocalDate
@@ -63,16 +66,37 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
         }
 
         val diagnostics = findViewById<Switch>(R.id.diagnostics_switch)
-        diagnostics.isChecked = store.prefs.getBoolean(PREF_DIAGNOSTICS, false)
+        diagnostics.isChecked = store.prefs.getBoolean(Prefs.DIAGNOSTICS, false)
         DebugLog.enabled = diagnostics.isChecked
         diagnosticsPanel.visibility = if (diagnostics.isChecked) View.VISIBLE else View.GONE
         diagnostics.setOnCheckedChangeListener { _, checked ->
-            store.prefs.edit().putBoolean(PREF_DIAGNOSTICS, checked).apply()
+            store.prefs.edit().putBoolean(Prefs.DIAGNOSTICS, checked).apply()
             DebugLog.enabled = checked
             diagnosticsPanel.visibility = if (checked) View.VISIBLE else View.GONE
             refreshLog()
         }
         findViewById<Button>(R.id.refresh_log_button).setOnClickListener { refreshLog() }
+
+        val overlay = findViewById<Switch>(R.id.overlay_switch)
+        overlay.isChecked = store.prefs.getBoolean(Prefs.OVERLAY_ENABLED, true)
+        overlay.setOnCheckedChangeListener { _, checked ->
+            store.prefs.edit().putBoolean(Prefs.OVERLAY_ENABLED, checked).apply()
+        }
+        bindLimit(findViewById(R.id.limit_reels), Prefs.LIMIT_REELS)
+        bindLimit(findViewById(R.id.limit_facebook), Prefs.LIMIT_FACEBOOK)
+    }
+
+    /** Shows the saved limit in [field] and saves edits; empty or 0 means no limit. */
+    private fun bindLimit(field: EditText, key: String) {
+        val saved = store.prefs.getInt(key, 0)
+        if (saved > 0) field.setText(saved.toString())
+        field.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
+            override fun afterTextChanged(s: Editable?) {
+                store.prefs.edit().putInt(key, s?.toString()?.toIntOrNull() ?: 0).apply()
+            }
+        })
     }
 
     override fun onResume() {
@@ -88,7 +112,9 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
         super.onPause()
     }
 
-    override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) = refreshCounts()
+    override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
+        if (key !in Prefs.ALL) refreshCounts()
+    }
 
     private fun refreshStatus() {
         val on = isServiceEnabled()
@@ -131,9 +157,5 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
             ?: return false
         val me = ComponentName(this, ScrollCounterService::class.java)
         return enabled.split(':').any { ComponentName.unflattenFromString(it) == me }
-    }
-
-    companion object {
-        const val PREF_DIAGNOSTICS = "diagnostics"
     }
 }

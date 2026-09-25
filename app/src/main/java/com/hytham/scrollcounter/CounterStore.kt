@@ -11,9 +11,9 @@ enum class Counter(val key: String) {
 }
 
 /** Per-day counts, stored as "<yyyy-MM-dd>|<counter key>" -> Int. */
-class CounterStore(context: Context) {
-    val prefs: SharedPreferences =
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+class CounterStore private constructor(val prefs: SharedPreferences) {
+    constructor(context: Context) :
+        this(context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE))
 
     fun add(counter: Counter, amount: Int, day: LocalDate = LocalDate.now()) {
         if (amount <= 0) return
@@ -31,5 +31,7 @@ class CounterStore(context: Context) {
 
     companion object {
         const val PREFS_NAME = "counts"
+
+        fun from(prefs: SharedPreferences) = CounterStore(prefs)
     }
 }

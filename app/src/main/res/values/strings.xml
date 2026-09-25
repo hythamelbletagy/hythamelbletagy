@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Scroll Counter</string>
     <string name="service_label">Scroll Counter</string>
-    <string name="service_description">Counts Instagram reels you scroll past and how many screens (pages) you scroll in the Facebook app and on facebook.com in your browser. It only reads scroll events and the browser address bar from these apps. Nothing leaves your phone.</string>
+    <string name="service_description">Counts Instagram reels you scroll past and how many screens (pages) you scroll in the Facebook app and on facebook.com in your browser. It can show a small floating counter on top of those apps. It notes which app is open so it can hide the counter elsewhere, and only reads scroll events and the browser address bar. Nothing leaves your phone.</string>
 
     <string name="today">Today</string>
     <string name="ig_reels">Instagram reels</string>
@@ -20,6 +20,12 @@
     <string name="open_app_info">Open app info</string>
     <string name="reset_today">Reset today</string>
     <string name="reset_confirm">Reset today\'s counts to zero?</string>
+    <string name="floating_counter">Floating counter</string>
+    <string name="overlay_switch">Show counter on top of Instagram &amp; Facebook</string>
+    <string name="overlay_hint">Drag the badge to move it. It turns red when you reach a daily limit.</string>
+    <string name="limit_reels">Daily limit: Instagram reels</string>
+    <string name="limit_facebook">Daily limit: Facebook pages (app + web)</string>
+    <string name="no_limit">None</string>
     <string name="diagnostics">Diagnostics (log recent scroll events)</string>
     <string name="refresh_log">Refresh log</string>
     <string name="log_empty">No events yet. Scroll in Instagram or Facebook, then tap Refresh.</string>
