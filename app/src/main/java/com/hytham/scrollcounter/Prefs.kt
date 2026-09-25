@@ -21,6 +21,9 @@ object Prefs {
     const val REEL_MIN_SECONDS = "reel_min_seconds"
     const val DEFAULT_REEL_MIN_SECONDS = 5
 
+    /** The most recent unexpected error in the service, shown on the main screen. */
+    const val LAST_ERROR = "last_error"
+
     const val SESSION_INSTAGRAM = "ig"
     const val SESSION_FACEBOOK = "fb"
     fun sessionCount(name: String) = "session_${name}_count"
@@ -30,7 +33,7 @@ object Prefs {
     val ALL = setOf(
         DIAGNOSTICS, OVERLAY_ENABLED, BADGE_X, BADGE_Y,
         LIMIT_REELS, LIMIT_FACEBOOK, SESSION_LIMIT_REELS, SESSION_LIMIT_FACEBOOK,
-        SESSION_GAP_MINUTES, REEL_MIN_SECONDS,
+        SESSION_GAP_MINUTES, REEL_MIN_SECONDS, LAST_ERROR,
         sessionLeftAt(SESSION_INSTAGRAM), sessionLeftAt(SESSION_FACEBOOK),
     )
 }

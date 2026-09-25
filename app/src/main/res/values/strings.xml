@@ -13,8 +13,13 @@
     <string name="col_fb_app">FB app</string>
     <string name="col_fb_web">FB web</string>
 
-    <string name="status_on">Counter is ON</string>
+    <string name="status_on">Counter is ON and running</string>
     <string name="status_off">Counter is OFF — enable it in Accessibility settings</string>
+    <string name="status_not_running">Counter is switched on but not running</string>
+    <string name="detail_not_running">Android hasn\'t started it. Tap the button below, turn Scroll Counter OFF, then ON again. If that doesn\'t help, restart the phone.</string>
+    <string name="detail_no_events">Waiting for activity: open Instagram or Facebook.</string>
+    <string name="detail_events">Activity seen: %1$d events (Instagram %2$d, Facebook %3$d). Last: %4$s, %5$d s ago.</string>
+    <string name="detail_error">Last error: %1$s</string>
     <string name="enable_service">Open accessibility settings</string>
     <string name="restricted_hint">Android 13+: if the switch is greyed out, open App info → ⋮ → \"Allow restricted settings\", then try again.</string>
     <string name="open_app_info">Open app info</string>

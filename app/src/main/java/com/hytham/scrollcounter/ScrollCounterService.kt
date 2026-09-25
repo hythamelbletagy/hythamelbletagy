@@ -35,14 +35,21 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
 
     override fun onServiceConnected() {
         store = CounterStore(this)
-        instagramSession = Session(store.prefs, Prefs.SESSION_INSTAGRAM)
-        facebookSession = Session(store.prefs, Prefs.SESSION_FACEBOOK)
-        badge = OverlayBadge(this, store.prefs, instagramSession, facebookSession)
-        DebugLog.enabled = store.prefs.getBoolean(Prefs.DIAGNOSTICS, false)
-        store.prefs.registerOnSharedPreferenceChangeListener(this)
+        try {
+            instagramSession = Session(store.prefs, Prefs.SESSION_INSTAGRAM)
+            facebookSession = Session(store.prefs, Prefs.SESSION_FACEBOOK)
+            badge = OverlayBadge(this, store.prefs, instagramSession, facebookSession)
+            DebugLog.enabled = store.prefs.getBoolean(Prefs.DIAGNOSTICS, false)
+            store.prefs.registerOnSharedPreferenceChangeListener(this)
+            ServiceStatus.connected = true
+            DebugLog.add("service connected")
+        } catch (t: Throwable) {
+            reportError("start", t)
+        }
     }
 
     override fun onDestroy() {
+        ServiceStatus.connected = false
         if (::store.isInitialized) store.prefs.unregisterOnSharedPreferenceChangeListener(this)
         if (::badge.isInitialized) badge.hide()
         mode?.let { sessionFor(it).leave(System.currentTimeMillis()) }
@@ -52,12 +59,26 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
 
     /** Counts, limits and the on/off switch all live in prefs: redraw on any change. */
     override fun onSharedPreferenceChanged(prefs: SharedPreferences?, key: String?) {
-        if (key == Prefs.BADGE_X || key == Prefs.BADGE_Y) return
-        badge.refresh()
+        if (key == Prefs.BADGE_X || key == Prefs.BADGE_Y || key == Prefs.LAST_ERROR) return
+        showBadge(mode)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
         val pkg = event.packageName?.toString() ?: return
+        ServiceStatus.events++
+        ServiceStatus.lastPackage = pkg
+        ServiceStatus.lastEventAt = System.currentTimeMillis()
+        if (pkg == INSTAGRAM) ServiceStatus.instagramEvents++
+        if (pkg in FACEBOOK_APPS) ServiceStatus.facebookEvents++
+        // An unexpected error must not take the whole service down: record it and carry on.
+        try {
+            handleEvent(pkg, event)
+        } catch (t: Throwable) {
+            reportError("event from $pkg", t)
+        }
+    }
+
+    private fun handleEvent(pkg: String, event: AccessibilityEvent) {
         if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) onWindowChanged(pkg)
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return
         if (pkg != foreground && (pkg == INSTAGRAM || pkg in FACEBOOK_APPS || pkg in BROWSERS)) {
@@ -88,10 +109,13 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
     private fun onWindowChanged(eventPkg: String) {
         // Use the active window's app: keyboards and popups send window events
         // too, but the app underneath stays active.
-        // (Our badge window isn't focusable, so it's never the active window.)
-        val root = rootInActiveWindow ?: return
-        val pkg = root.packageName?.toString() ?: eventPkg
-        root.release()
+        // Our badge window isn't focusable, so it's never the active window; an
+        // event from it with no active window tells us nothing.
+        val root = rootInActiveWindow
+        val activePkg = root?.packageName?.toString()
+        root?.release()
+        if (activePkg == null && eventPkg == packageName) return
+        val pkg = activePkg ?: eventPkg
 
         foreground = pkg
         if (pkg in BROWSERS) {
@@ -123,8 +147,12 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
         }
         val reel = reels.currentReel
         handler.postDelayed({
-            // Still the same reel, still in Instagram, and the reels screen is still open.
-            if (reels.currentReel == reel && foreground == INSTAGRAM && reelsPagerOnScreen()) countReel()
+            try {
+                // Still the same reel, still in Instagram, and the reels screen is still open.
+                if (reels.currentReel == reel && foreground == INSTAGRAM && reelsPagerOnScreen()) countReel()
+            } catch (t: Throwable) {
+                reportError("reel timer", t)
+            }
         }, seconds * 1000L)
     }
 
@@ -192,7 +220,22 @@ class ScrollCounterService : AccessibilityService(), SharedPreferences.OnSharedP
             newMode?.let { sessionFor(it).enter(now) }
             mode = newMode
         }
-        badge.show(newMode)
+        showBadge(newMode)
+    }
+
+    /** Drawing the badge is kept separate so a failure there can't stop counting. */
+    private fun showBadge(mode: OverlayBadge.Mode?) {
+        try {
+            badge.show(mode)
+        } catch (t: Throwable) {
+            reportError("badge", t)
+        }
+    }
+
+    private fun reportError(where: String, t: Throwable) {
+        val message = "$where: ${t.javaClass.simpleName}: ${t.message}"
+        DebugLog.add("ERROR $message")
+        if (::store.isInitialized) store.prefs.edit().putString(Prefs.LAST_ERROR, message).apply()
     }
 
     private fun refreshBrowserUrl(pkg: String, state: BrowserState, now: Long) {

@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.Editable
 import android.text.TextWatcher
@@ -23,6 +25,14 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
 
     private lateinit var store: CounterStore
     private lateinit var status: TextView
+    private lateinit var serviceDetail: TextView
+    private val handler = Handler(Looper.getMainLooper())
+    private val statusTicker = object : Runnable {
+        override fun run() {
+            refreshStatus()
+            handler.postDelayed(this, 2000)
+        }
+    }
     private lateinit var enableButton: Button
     private lateinit var restrictedHint: TextView
     private lateinit var appInfoButton: Button
@@ -40,6 +50,7 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
         store = CounterStore(this)
 
         status = findViewById(R.id.status)
+        serviceDetail = findViewById(R.id.service_detail)
         enableButton = findViewById(R.id.enable_button)
         restrictedHint = findViewById(R.id.restricted_hint)
         appInfoButton = findViewById(R.id.app_info_button)
@@ -118,13 +129,14 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
     override fun onResume() {
         super.onResume()
         store.prefs.registerOnSharedPreferenceChangeListener(this)
-        refreshStatus()
+        handler.post(statusTicker)
         refreshCounts()
         refreshLog()
     }
 
     override fun onPause() {
         store.prefs.unregisterOnSharedPreferenceChangeListener(this)
+        handler.removeCallbacks(statusTicker)
         super.onPause()
     }
 
@@ -133,10 +145,36 @@ class MainActivity : Activity(), SharedPreferences.OnSharedPreferenceChangeListe
     }
 
     private fun refreshStatus() {
-        val on = isServiceEnabled()
-        status.setText(if (on) R.string.status_on else R.string.status_off)
-        status.setTextColor(getColor(if (on) R.color.status_on else R.color.status_off))
-        val offVisibility = if (on) View.GONE else View.VISIBLE
+        val enabled = isServiceEnabled()
+        val running = enabled && ServiceStatus.connected
+        status.setText(
+            when {
+                running -> R.string.status_on
+                enabled -> R.string.status_not_running
+                else -> R.string.status_off
+            }
+        )
+        status.setTextColor(getColor(if (running) R.color.status_on else R.color.status_off))
+
+        val detail = mutableListOf<String>()
+        when {
+            enabled && !running -> detail += getString(R.string.detail_not_running)
+            running && ServiceStatus.events == 0L -> detail += getString(R.string.detail_no_events)
+            running -> detail += getString(
+                R.string.detail_events,
+                ServiceStatus.events,
+                ServiceStatus.instagramEvents,
+                ServiceStatus.facebookEvents,
+                ServiceStatus.lastPackage ?: "?",
+                (System.currentTimeMillis() - ServiceStatus.lastEventAt) / 1000,
+            )
+        }
+        store.prefs.getString(Prefs.LAST_ERROR, null)?.let { detail += getString(R.string.detail_error, it) }
+        serviceDetail.text = detail.joinToString("\n")
+        serviceDetail.visibility = if (detail.isEmpty()) View.GONE else View.VISIBLE
+
+        // Show the settings buttons whenever the counter isn't actually running.
+        val offVisibility = if (running) View.GONE else View.VISIBLE
         enableButton.visibility = offVisibility
         restrictedHint.visibility = offVisibility
         appInfoButton.visibility = offVisibility
