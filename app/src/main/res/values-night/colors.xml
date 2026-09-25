@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="accent">#FFB4AAFF</color>
+    <color name="card_bg">#FF201F27</color>
+    <color name="card_stroke">#FF34323F</color>
+    <color name="text_secondary">#FFB5B2C2</color>
+    <color name="status_on">#FF7DDB97</color>
+    <color name="status_off">#FFF2B8B5</color>
+    <color name="ig">#FFFF7AB6</color>
+    <color name="fb">#FF7FB3FF</color>
+</resources>

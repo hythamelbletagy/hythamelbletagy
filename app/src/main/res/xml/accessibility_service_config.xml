@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Only the apps listed in packageNames deliver events to the service:
+  Instagram, Facebook, Facebook Lite and common browsers (for facebook.com).
+  Add a browser's package name here to support it.
+-->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accessibilityEventTypes="typeViewScrolled|typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:description="@string/service_description"
+    android:notificationTimeout="50"
+    android:packageNames="com.instagram.android,com.facebook.katana,com.facebook.lite,com.android.chrome,com.chrome.beta,org.mozilla.firefox,com.sec.android.app.sbrowser,com.microsoft.emmx,com.brave.browser,com.opera.browser,com.opera.mini.native,com.kiwibrowser.browser,com.duckduckgo.mobile.android,com.vivaldi.browser,com.mi.globalbrowser" />
